@@ -31,13 +31,16 @@ enum Spells
 {
     // Ancient Core Hound
     SPELL_SERRATED_BITE     = 19771,
+    SPELL_SERRATED_BITE_HC  = 102001,
     SPELL_PLAY_DEAD         = 19822,
+    SPELL_PLAY_DEAD_HC      = 102000,
     SPELL_FULL_HEALTH       = 17683,
     SPELL_FIRE_NOVA_VISUAL  = 19823,
     SPELL_PLAY_DEAD_PACIFY  = 19951,    // Server side spell
 
     // Lava Spawn
     SPELL_FIREBALL          = 19391,
+    SPELL_FIREBALL_HC       = 102002,
     SPELL_SPLIT_1           = 19569,
     SPELL_SPLIT_2           = 19570,
 
@@ -67,7 +70,7 @@ public:
         void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*damagetype*/, SpellSchoolMask /*damageSchoolMask*/) override
         {
             // Prevent receiving any extra damage if Hound is playing dead
-            if (me->HasAura(SPELL_PLAY_DEAD))
+            if (me->HasAura(SPELL_PLAY_DEAD) || me->HasAura(SPELL_PLAY_DEAD_HC))
             {
                 damage = 0;
                 return;
@@ -76,7 +79,13 @@ public:
             {
                 damage = 0;
                 Talk(EMOTE_SMOLDERING);
-                DoCastSelf(SPELL_PLAY_DEAD);
+                if (me->GetMap()->IsHeroic()) {
+                    DoCastSelf(SPELL_PLAY_DEAD_HC);
+                }
+                else {
+                    DoCastSelf(SPELL_PLAY_DEAD);
+                }
+                
             }
         }
 
@@ -87,7 +96,7 @@ public:
                 return;
             }
 
-            if (me->HasUnitState(UNIT_STATE_CASTING) || me->HasAura(SPELL_PLAY_DEAD))
+            if (me->HasUnitState(UNIT_STATE_CASTING) || me->HasAura(SPELL_PLAY_DEAD) || me->HasAura(SPELL_PLAY_DEAD_HC))
             {
                 return;
             }
@@ -179,7 +188,7 @@ public:
                 // Alive hound been found within 80 yards -> cancel suicide
                 if (std::find_if(hounds.begin(), hounds.end(), [creatureTarget](Creature const* hound)
                 {
-                    return creatureTarget != hound && creatureTarget->IsWithinLOSInMap(hound) && hound->IsAlive() && hound->IsInCombat() && !hound->HasAura(SPELL_PLAY_DEAD);
+                    return creatureTarget != hound && creatureTarget->IsWithinLOSInMap(hound) && hound->IsAlive() && hound->IsInCombat() && (!hound->HasAura(SPELL_PLAY_DEAD) || !hound->HasAura(SPELL_PLAY_DEAD_HC));
                 }) != hounds.end())
                 {
                     shouldDie = false;

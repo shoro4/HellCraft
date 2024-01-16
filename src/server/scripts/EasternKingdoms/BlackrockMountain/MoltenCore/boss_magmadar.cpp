@@ -39,9 +39,10 @@ enum Spells
 enum Events
 {
     EVENT_FRENZY                    = 1,
-    EVENT_PANIC,
-    EVENT_LAVA_BOMB,
-    EVENT_LAVA_BOMB_RANGED,
+    EVENT_PANIC                     = 2,
+    EVENT_LAVA_BOMB                 = 3,
+    EVENT_LAVA_BOMB_RANGED          = 4,
+    EVENT_SUMMON_HOUNDS             = 5,
 };
 
 constexpr float MELEE_TARGET_LOOKUP_DIST = 10.0f;
@@ -55,13 +56,25 @@ public:
     {
         boss_magmadarAI(Creature* creature) : BossAI(creature, DATA_MAGMADAR) {}
 
+        Position houndSpawn;
+
         void JustEngagedWith(Unit* /*who*/) override
         {
             _JustEngagedWith();
-            events.ScheduleEvent(EVENT_FRENZY, 8500ms);
-            events.ScheduleEvent(EVENT_PANIC, 9500ms);
-            events.ScheduleEvent(EVENT_LAVA_BOMB, 12s);
-            events.ScheduleEvent(EVENT_LAVA_BOMB_RANGED, 15s);
+            if (me->GetMap()->IsHeroic()) {
+                events.ScheduleEvent(EVENT_FRENZY, 7500ms);
+                events.ScheduleEvent(EVENT_PANIC, 8500ms);
+                events.ScheduleEvent(EVENT_LAVA_BOMB, 12s);
+                events.ScheduleEvent(EVENT_LAVA_BOMB_RANGED, 14s);
+                events.ScheduleEvent(EVENT_SUMMON_HOUNDS, 14s);
+            }
+            else {
+                events.ScheduleEvent(EVENT_FRENZY, 8500ms);
+                events.ScheduleEvent(EVENT_PANIC, 9500ms);
+                events.ScheduleEvent(EVENT_LAVA_BOMB, 12s);
+                events.ScheduleEvent(EVENT_LAVA_BOMB_RANGED, 15s);
+            }
+            
         }
 
         void ExecuteEvent(uint32 eventId) override
@@ -72,13 +85,13 @@ public:
                 {
                     Talk(EMOTE_FRENZY);
                     DoCastSelf(SPELL_FRENZY);
-                    events.RepeatEvent(urand(15000, 20000));
+                    me->GetMap()->IsHeroic() ? events.RepeatEvent(urand(14000, 17000)) : events.RepeatEvent(urand(15000, 20000));
                     break;
                 }
                 case EVENT_PANIC:
                 {
                     DoCastVictim(SPELL_PANIC);
-                    events.RepeatEvent(urand(31000, 38000));
+                    me->GetMap()->IsHeroic() ? events.RepeatEvent(urand(25000, 30000)) : events.RepeatEvent(urand(31000, 38000));
                     break;
                 }
                 case EVENT_LAVA_BOMB:
@@ -86,9 +99,9 @@ public:
                     if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, MELEE_TARGET_LOOKUP_DIST, true))
                     {
                         DoCast(target, SPELL_LAVA_BOMB);
+                        houndSpawn = target->GetPosition();
                     }
-
-                    events.RepeatEvent(urand(12000, 15000));
+                    me->GetMap()->IsHeroic() ? events.RepeatEvent(urand(10000, 13000)) : events.RepeatEvent(urand(12000, 15000));
                     break;
                 }
                 case EVENT_LAVA_BOMB_RANGED:
@@ -103,7 +116,17 @@ public:
                     {
                         DoCast(targets.front() , SPELL_LAVA_BOMB_RANGED);
                     }
-                    events.RepeatEvent(urand(12000, 15000));
+                    me->GetMap()->IsHeroic() ? events.RepeatEvent(urand(10000, 13000)) : events.RepeatEvent(urand(12000, 15000));
+                    break;
+                }
+                case EVENT_SUMMON_HOUNDS:
+                {
+                    for (size_t i = 0; i < 5; i++)
+                    {
+                        uint8 myRand = rand() % 10 - 5;
+                        me->SummonCreature(101000, houndSpawn.GetPositionX() + myRand, houndSpawn.GetPositionY() + myRand, houndSpawn.GetPositionZ(), TEMPSUMMON_CORPSE_DESPAWN);
+                    }
+                    events.RepeatEvent(25000);
                     break;
                 }
             }

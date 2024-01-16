@@ -25,13 +25,16 @@ enum Spells
     SPELL_RAIN_OF_FIRE          = 19717,
     SPELL_SHADOW_BOLT_RANDOM    = 19728,
     SPELL_SHADOW_BOLT_VICTIM    = 19729,
+    SPELL_SHADOW_CLASH          = 102006,
 };
 
 enum Events
 {
-    EVENT_GEHENNAS_CURSE    = 1,
-    EVENT_RAIN_OF_FIRE,
-    EVENT_SHADOW_BOLT,
+    EVENT_GEHENNAS_CURSE        = 1,
+    EVENT_RAIN_OF_FIRE          = 2,     
+    EVENT_SHADOW_BOLT           = 3,
+    EVENT_SHADOW_CLASH          = 4,
+    EVENT_SHADOW_CLASH_DAMAGE   = 5,
 };
 
 class boss_gehennas : public CreatureScript
@@ -42,6 +45,8 @@ public:
     struct boss_gehennasAI : public BossAI
     {
         boss_gehennasAI(Creature* creature) : BossAI(creature, DATA_GEHENNAS) {}
+
+        Unit* clash_target;
 
         void JustEngagedWith(Unit* /*attacker*/) override
         {
@@ -91,6 +96,17 @@ public:
                     events.RepeatEvent(5000);
                     break;
                 }
+                case EVENT_SHADOW_CLASH:
+                {
+                    clash_target = SelectTarget(SelectTargetMethod::Random, 1, 0.0f, true);
+                    events.ScheduleEvent(EVENT_SHADOW_CLASH_DAMAGE, 5000);
+                    break;
+                }
+                case EVENT_SHADOW_CLASH_DAMAGE:
+                {
+                    break;
+                }
+
             }
         }
     };

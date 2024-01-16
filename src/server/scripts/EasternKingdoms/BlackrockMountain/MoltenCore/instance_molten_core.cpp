@@ -111,7 +111,7 @@ public:
                 case NPC_FLAMEWALKER_HEALER:
                 case NPC_FLAMEWALKER_ELITE:
                 {
-                    AddMinion(creature);
+                    AddMinion(creature, true);
                     break;
                 }
             }
@@ -123,7 +123,7 @@ public:
             {
                 case NPC_FIRESWORN:
                 {
-                    RemoveMinion(creature);
+                    AddMinion(creature, false);
                     break;
                 }
                 case NPC_FLAMEWALKER:
@@ -132,7 +132,7 @@ public:
                 case NPC_FLAMEWALKER_HEALER:
                 case NPC_FLAMEWALKER_ELITE:
                 {
-                    RemoveMinion(creature);
+                    AddMinion(creature, false);
                     break;
                 }
             }
