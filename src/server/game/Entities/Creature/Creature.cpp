@@ -31,13 +31,13 @@
 #include "GroupMgr.h"
 #include "Log.h"
 #include "LootMgr.h"
-#include "MapMgr.h"
 #include "ObjectMgr.h"
 #include "Opcodes.h"
 #include "OutdoorPvPMgr.h"
 #include "Pet.h"
 #include "Player.h"
 #include "PoolMgr.h"
+#include "ScriptMgr.h"
 #include "ScriptedGossip.h"
 #include "SpellAuraEffects.h"
 #include "SpellMgr.h"
@@ -1627,7 +1627,7 @@ bool Creature::isVendorWithIconSpeak() const
     return m_creatureInfo->IconName == "Speak" && m_creatureData->npcflag & UNIT_NPC_FLAG_VENDOR;
 }
 
-bool Creature::LoadCreatureFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, bool gridLoad, bool allowDuplicate /*= false*/)
+bool Creature::LoadCreatureFromDB(ObjectGuid::LowType spawnId, Map* map, bool addToMap, bool allowDuplicate /*= false*/)
 {
     if (!allowDuplicate)
     {
@@ -1664,16 +1664,6 @@ bool Creature::LoadCreatureFromDB(ObjectGuid::LowType spawnId, Map* map, bool ad
     {
         LOG_ERROR("sql.sql", "Creature (SpawnId: {}) not found in table `creature`, can't load. ", spawnId);
         return false;
-    }
-
-    // xinef: fix from db
-    if ((addToMap || gridLoad) && !data->overwrittenZ)
-    {
-        float tz = map->GetHeight(data->posX, data->posY, data->posZ + 1.0f, true);
-        if (tz >= data->posZ && tz - data->posZ <= 1.0f)
-            const_cast<CreatureData*>(data)->posZ = tz + 0.1f;
-
-        const_cast<CreatureData*>(data)->overwrittenZ = true;
     }
 
     // xinef: this has to be assigned before Create function, properly loads equipment id from DB
@@ -2191,6 +2181,11 @@ bool Creature::IsImmunedToSpell(SpellInfo const* spellInfo, Spell const* spell)
 {
     if (!spellInfo)
         return false;
+
+    if (spellInfo->HasAttribute(SPELL_ATTR0_CU_BYPASS_MECHANIC_IMMUNITY))
+    {
+        return false;
+    }
 
     // Xinef: this should exclude self casts...
     // Spells that don't have effectMechanics.
