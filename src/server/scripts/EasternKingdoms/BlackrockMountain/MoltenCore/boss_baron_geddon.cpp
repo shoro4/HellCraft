@@ -34,6 +34,7 @@ enum Spells
     SPELL_IGNITE_MANA               = 19659,
     SPELL_LIVING_BOMB               = 20475,
     SPELL_ARMAGEDDON                = 20478,
+	SPELL_CONFLAG					= 100303,
 };
 
 enum Events
@@ -64,9 +65,16 @@ public:
         void JustEngagedWith(Unit* /*attacker*/) override
         {
             _JustEngagedWith();
-            events.ScheduleEvent(EVENT_INFERNO, 13s, 15s);
-            events.ScheduleEvent(EVENT_IGNITE_MANA, 7s, 19s);
-            events.ScheduleEvent(EVENT_LIVING_BOMB, 11s, 16s);
+			if (me->GetMap()->IsHeroic()) {
+				events.ScheduleEvent(EVENT_INFERNO, 15s, 15s);
+				events.ScheduleEvent(EVENT_IGNITE_MANA, 7s, 10s);
+				events.ScheduleEvent(EVENT_LIVING_BOMB, 10s, 15s);
+			}
+			else{
+				events.ScheduleEvent(EVENT_INFERNO, 13s, 15s);
+				events.ScheduleEvent(EVENT_IGNITE_MANA, 7s, 19s);
+				events.ScheduleEvent(EVENT_LIVING_BOMB, 11s, 16s);
+			}
         }
 
         void DamageTaken(Unit* /*attacker*/, uint32& damage, DamageEffectType /*dmgType*/, SpellSchoolMask /*school*/) override
@@ -90,8 +98,10 @@ public:
             {
                 case EVENT_INFERNO:
                 {
+					if (me->GetMap()->IsHeroic()) DoCastAOE(SPELL_CONFLAG)
                     DoCastAOE(SPELL_INFERNO);
-                    events.RepeatEvent(urand(21000, 26000));
+                    if (me->GetMap()->IsHeroic()) events.RepeatEvent(urand(25000, 25000));
+					else events.RepeatEvent(urand(21000, 26000));
                     break;
                 }
                 case EVENT_IGNITE_MANA:
@@ -110,6 +120,13 @@ public:
                     {
                         DoCast(target, SPELL_LIVING_BOMB);
                     }
+					
+					if (me->GetMap()->IsHeroic()) {
+						if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
+						{
+							DoCast(target, SPELL_LIVING_BOMB);
+						}
+					}
 
                     events.RepeatEvent(urand(11000, 16000));
                     break;

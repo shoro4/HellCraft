@@ -46,14 +46,22 @@ public:
     {
         boss_gehennasAI(Creature* creature) : BossAI(creature, DATA_GEHENNAS) {}
 
-        Unit* clash_target;
+        Unit* clash_target, clash_dest;
 
         void JustEngagedWith(Unit* /*attacker*/) override
         {
             _JustEngagedWith();
-            events.ScheduleEvent(EVENT_GEHENNAS_CURSE, 6s, 9s);
-            events.ScheduleEvent(EVENT_RAIN_OF_FIRE, 10s);
-            events.ScheduleEvent(EVENT_SHADOW_BOLT, 3s, 5s);
+			if (me->GetMap()->IsHeroic()) {
+				events.ScheduleEvent(EVENT_GEHENNAS_CURSE, 4s, 7s);
+				events.ScheduleEvent(EVENT_RAIN_OF_FIRE, 8s);
+				events.ScheduleEvent(EVENT_SHADOW_BOLT, 2s, 4s);
+				events.ScheduleEvent(EVENT_SHADOW_CLASH, 15s, 16s);
+			}
+			else{
+				events.ScheduleEvent(EVENT_GEHENNAS_CURSE, 6s, 9s);
+				events.ScheduleEvent(EVENT_RAIN_OF_FIRE, 10s);
+				events.ScheduleEvent(EVENT_SHADOW_BOLT, 3s, 5s);
+			}
         }
 
         void ExecuteEvent(uint32 eventId) override
@@ -99,11 +107,16 @@ public:
                 case EVENT_SHADOW_CLASH:
                 {
                     clash_target = SelectTarget(SelectTargetMethod::Random, 1, 0.0f, true);
+					DoCast(clash_target, SPELL_SHADOW_CLASH);
                     events.ScheduleEvent(EVENT_SHADOW_CLASH_DAMAGE, 5000);
                     break;
                 }
                 case EVENT_SHADOW_CLASH_DAMAGE:
                 {
+					if(!clash_target->HasBuff(SPELL_SHADOW_CLASH_BUFF))
+					{
+						//kill player
+					}
                     break;
                 }
 
