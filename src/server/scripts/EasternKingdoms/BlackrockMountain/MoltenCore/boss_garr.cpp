@@ -73,9 +73,16 @@ public:
         {
             _JustEngagedWith();
             DoCastSelf(SPELL_SEPARATION_ANXIETY, true);
-            events.ScheduleEvent(EVENT_ANTIMAGIC_PULSE, 15s);
-            events.ScheduleEvent(EVENT_MAGMA_SHACKLES, 10s);
-            massEruptionTimer = 600000; // 10 mins
+			if (me->GetMap()->IsHeroic()) {
+				events.ScheduleEvent(EVENT_ANTIMAGIC_PULSE, 15s);
+				events.ScheduleEvent(EVENT_MAGMA_SHACKLES, 10s);
+				massEruptionTimer = 500000; 
+			}
+			else{
+				events.ScheduleEvent(EVENT_ANTIMAGIC_PULSE, 15s);
+				events.ScheduleEvent(EVENT_MAGMA_SHACKLES, 10s);
+				massEruptionTimer = 600000; // 10 mins
+			}
         }
 
         void UpdateAI(uint32 diff) override
