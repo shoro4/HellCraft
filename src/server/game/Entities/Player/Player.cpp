@@ -5009,6 +5009,21 @@ uint32 Player::GetShieldBlockValue() const
     return uint32(value);
 }
 
+uint32 Player::GetMasteryValue() const
+{
+	float value;
+	switch(player->GetClass()){
+		case 0:
+			value = (m_auraBaseMod[MASTERY_VALUE][FLAT_MOD];
+		break;
+	}
+    
+
+    value = (value < 0) ? 0 : value;
+
+    return uint32(value);
+}
+
 float Player::GetMeleeCritFromAgility()
 {
     uint8 level = GetLevel();
@@ -6708,6 +6723,9 @@ void Player::_ApplyItemBonuses(ItemTemplate const* proto, uint8 slot, bool apply
             case ITEM_MOD_BLOCK_VALUE:
                 HandleBaseModValue(SHIELD_BLOCK_VALUE, FLAT_MOD, float(val), apply);
                 break;
+			case ITEM_MOD_MASTERY:
+				ApplyRatingMod(ITEM_MOD_MASTERY, int32(val), apply);
+				break;
             /// @deprecated item mods
             case ITEM_MOD_SPELL_HEALING_DONE:
             case ITEM_MOD_SPELL_DAMAGE_DONE:
