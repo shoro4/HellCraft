@@ -15,11 +15,13 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "hyjal.h"
 #include "CreatureScript.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
 #include "ScriptedGossip.h"
-#include "hyjal.h"
+#include "SpellScript.h"
+#include "SpellScriptLoader.h"
 
 enum Spells
 {
@@ -111,7 +113,7 @@ public:
             scheduler.CancelAll();
             if (InstanceScript* hyjal = me->GetInstanceScript())
                 if (!hyjal->GetData(DATA_WAVE_STATUS))
-                    me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                    me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
         }
 
         void JustEngagedWith(Unit* /*who*/) override
@@ -136,7 +138,7 @@ public:
 
         void IsSummonedBy(WorldObject* /*summoner*/) override
         {
-            me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+            me->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
             DoCastSelf(SPELL_SIMPLE_TELEPORT, true);
 
             // Should wait 2400ms
@@ -174,7 +176,7 @@ public:
 
     bool OnGossipSelect(Player* /*player*/ , Creature* creature, uint32 /*sender*/, uint32 /*action*/) override
     {
-        creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+        creature->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
 
         if (InstanceScript* hyjal = creature->GetInstanceScript())
         {
@@ -211,7 +213,7 @@ public:
             scheduler.CancelAll();
             if (InstanceScript* hyjal = me->GetInstanceScript())
                 if (!hyjal->GetData(DATA_WAVE_STATUS))
-                    me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+                    me->SetNpcFlag(UNIT_NPC_FLAG_GOSSIP);
         }
 
         void JustEngagedWith(Unit* /*who*/) override
@@ -249,7 +251,7 @@ public:
 
     bool OnGossipSelect(Player* /*player*/, Creature* creature, uint32 /*sender*/, uint32 /*action*/) override
     {
-        creature->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
+        creature->RemoveNpcFlag(UNIT_NPC_FLAG_GOSSIP);
 
         if (InstanceScript* hyjal = creature->GetInstanceScript())
         {
@@ -325,6 +327,26 @@ public:
         return true;
     }
 
+};
+
+// 31538 - Cannibalize (Heal)
+class spell_cannibalize_heal : public SpellScript
+{
+    PrepareSpellScript(spell_cannibalize_heal);
+
+    void HandleHeal(SpellEffIndex /*effIndex*/)
+    {
+        if (Unit* caster = GetCaster())
+        {
+            uint32 heal = caster->CountPctFromMaxHealth(7);
+            SetHitHeal(heal);
+        }
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget += SpellEffectFn(spell_cannibalize_heal::HandleHeal, EFFECT_0, SPELL_EFFECT_HEAL);
+    }
 };
 
 struct npc_hyjal_ground_trash : public ScriptedAI
@@ -704,4 +726,5 @@ void AddSC_hyjal()
     RegisterHyjalAI(npc_hyjal_ground_trash);
     RegisterHyjalAI(npc_hyjal_gargoyle);
     RegisterHyjalAI(npc_hyjal_frost_wyrm);
+    RegisterSpellScript(spell_cannibalize_heal);
 }

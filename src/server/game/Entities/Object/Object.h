@@ -18,8 +18,10 @@
 #ifndef _OBJECT_H
 #define _OBJECT_H
 
+#include "AreaDefines.h"
 #include "Common.h"
 #include "DataMap.h"
+#include "EventProcessor.h"
 #include "G3D/Vector3.h"
 #include "GridDefines.h"
 #include "GridReference.h"
@@ -31,9 +33,12 @@
 #include "Position.h"
 #include "UpdateData.h"
 #include "UpdateMask.h"
+#include <memory>
 #include <set>
 #include <sstream>
 #include <string>
+
+#include "UpdateFields.h"
 
 class ElunaEventProcessor;
 
@@ -92,6 +97,8 @@ struct PositionFullTerrainStatus;
 
 typedef std::unordered_map<Player*, UpdateData> UpdateDataMapType;
 typedef GuidUnorderedSet UpdatePlayerSet;
+
+static constexpr Milliseconds HEARTBEAT_INTERVAL = 5s + 200ms;
 
 class Object
 {
@@ -192,25 +199,42 @@ public:
     void ForceValuesUpdateAtIndex(uint32);
 
     [[nodiscard]] inline bool IsPlayer() const { return GetTypeId() == TYPEID_PLAYER; }
-    Player* ToPlayer() { if (GetTypeId() == TYPEID_PLAYER) return reinterpret_cast<Player*>(this); else return nullptr; }
-    [[nodiscard]] Player const* ToPlayer() const { if (GetTypeId() == TYPEID_PLAYER) return (Player const*)((Player*)this); else return nullptr; }
-    Creature* ToCreature() { if (GetTypeId() == TYPEID_UNIT) return reinterpret_cast<Creature*>(this); else return nullptr; }
-    [[nodiscard]] Creature const* ToCreature() const { if (GetTypeId() == TYPEID_UNIT) return (Creature const*)((Creature*)this); else return nullptr; }
+    Player* ToPlayer() { if (IsPlayer()) return reinterpret_cast<Player*>(this); else return nullptr; }
+    [[nodiscard]] Player const* ToPlayer() const { if (IsPlayer()) return reinterpret_cast<Player const*>(this); else return nullptr; }
 
-    Unit* ToUnit() { if (GetTypeId() == TYPEID_UNIT || GetTypeId() == TYPEID_PLAYER) return reinterpret_cast<Unit*>(this); else return nullptr; }
-    [[nodiscard]] Unit const* ToUnit() const { if (GetTypeId() == TYPEID_UNIT || GetTypeId() == TYPEID_PLAYER) return (Unit const*)((Unit*)this); else return nullptr; }
-    GameObject* ToGameObject() { if (GetTypeId() == TYPEID_GAMEOBJECT) return reinterpret_cast<GameObject*>(this); else return nullptr; }
-    [[nodiscard]] GameObject const* ToGameObject() const { if (GetTypeId() == TYPEID_GAMEOBJECT) return (GameObject const*)((GameObject*)this); else return nullptr; }
+    [[nodiscard]] inline bool IsCreature() const { return GetTypeId() == TYPEID_UNIT; }
+    Creature* ToCreature() { if (IsCreature()) return reinterpret_cast<Creature*>(this); else return nullptr; }
+    [[nodiscard]] Creature const* ToCreature() const { if (IsCreature()) return reinterpret_cast<Creature const*>(this); else return nullptr; }
 
-    Corpse* ToCorpse() { if (GetTypeId() == TYPEID_CORPSE) return reinterpret_cast<Corpse*>(this); else return nullptr; }
-    [[nodiscard]] Corpse const* ToCorpse() const { if (GetTypeId() == TYPEID_CORPSE) return (const Corpse*)((Corpse*)this); else return nullptr; }
+    [[nodiscard]] inline bool IsUnit() const { return isType(TYPEMASK_UNIT); }
+    Unit* ToUnit() { if (IsCreature() || IsPlayer()) return reinterpret_cast<Unit*>(this); else return nullptr; }
+    [[nodiscard]] Unit const* ToUnit() const { if (IsCreature() || IsPlayer()) return reinterpret_cast<Unit const*>(this); else return nullptr; }
 
-    DynamicObject* ToDynObject() { if (GetTypeId() == TYPEID_DYNAMICOBJECT) return reinterpret_cast<DynamicObject*>(this); else return nullptr; }
-    [[nodiscard]] DynamicObject const* ToDynObject() const { if (GetTypeId() == TYPEID_DYNAMICOBJECT) return reinterpret_cast<DynamicObject const*>(this); else return nullptr; }
+    [[nodiscard]] inline bool IsGameObject() const { return GetTypeId() == TYPEID_GAMEOBJECT; }
+    GameObject* ToGameObject() { if (IsGameObject()) return reinterpret_cast<GameObject*>(this); else return nullptr; }
+    [[nodiscard]] GameObject const* ToGameObject() const { if (IsGameObject()) return reinterpret_cast<GameObject const*>(this); else return nullptr; }
+
+    [[nodiscard]] inline bool IsCorpse() const { return GetTypeId() == TYPEID_CORPSE; }
+    Corpse* ToCorpse() { if (IsCorpse()) return reinterpret_cast<Corpse*>(this); else return nullptr; }
+    [[nodiscard]] Corpse const* ToCorpse() const { if (IsCorpse()) return reinterpret_cast<Corpse const*>(this); else return nullptr; }
+
+    [[nodiscard]] inline bool IsDynamicObject() const { return GetTypeId() == TYPEID_DYNAMICOBJECT; }
+    DynamicObject* ToDynObject() { if (IsDynamicObject()) return reinterpret_cast<DynamicObject*>(this); else return nullptr; }
+    [[nodiscard]] DynamicObject const* ToDynObject() const { if (IsDynamicObject()) return reinterpret_cast<DynamicObject const*>(this); else return nullptr; }
+
+    [[nodiscard]] inline bool IsItem() const { return GetTypeId() == TYPEID_ITEM; }
+
+    virtual void Heartbeat() {}
 
     virtual std::string GetDebugInfo() const;
 
     DataMap CustomData;
+
+    template<typename... T>
+    [[nodiscard]] bool EntryEquals(T... entries) const
+    {
+        return ((GetEntry() == entries) || ...);
+    }
 
 protected:
     Object();
@@ -381,12 +405,56 @@ class MovableMapObject
 protected:
     MovableMapObject()  = default;
 
-private:
     [[nodiscard]] Cell const& GetCurrentCell() const { return _currentCell; }
+
+private:
     void SetCurrentCell(Cell const& cell) { _currentCell = cell; }
 
     Cell _currentCell;
     MapObjectCellMoveState _moveState{MAP_OBJECT_CELL_MOVE_NONE};
+};
+
+class UpdatableMapObject
+{
+    friend class Map;
+
+public:
+    enum UpdateState : uint8
+    {
+        NotUpdating,
+        PendingAdd,
+        Updating
+    };
+
+protected:
+    UpdatableMapObject() : _mapUpdateListOffset(0), _mapUpdateState(NotUpdating) { }
+
+private:
+    void SetMapUpdateListOffset(std::size_t const offset)
+    {
+        ASSERT(_mapUpdateState == Updating, "Attempted to set update list offset when object is not in map update list");
+        _mapUpdateListOffset = offset;
+    }
+
+    size_t GetMapUpdateListOffset() const
+    {
+        ASSERT(_mapUpdateState == Updating, "Attempted to get update list offset when object is not in map update list");
+        return _mapUpdateListOffset;
+    }
+
+    void SetUpdateState(UpdateState state)
+    {
+        _mapUpdateState = state;
+    }
+
+    UpdateState GetUpdateState() const
+    {
+        return _mapUpdateState;
+    }
+
+private:
+    std::size_t _mapUpdateListOffset;
+    UpdateState _mapUpdateState;
 };
 
 class WorldObject : public Object, public WorldLocation
@@ -396,7 +464,7 @@ protected:
 public:
     ~WorldObject() override;
 
-    virtual void Update(uint32 /*time_diff*/);
+    virtual void Update(uint32 diff);
 
     void _Create(ObjectGuid::LowType guidlow, HighGuid guidhigh, uint32 phaseMask);
 
@@ -479,9 +547,9 @@ public:
 
     virtual void CleanupsBeforeDelete(bool finalCleanup = true);  // used in destructor or explicitly before mass creature delete to remove cross-references to already deleted units
 
-    virtual void SendMessageToSet(WorldPacket const* data, bool self) const { if (IsInWorld()) SendMessageToSetInRange(data, GetVisibilityRange(), self, true); } // pussywizard!
-    virtual void SendMessageToSetInRange(WorldPacket const* data, float dist, bool /*self*/, bool includeMargin = false, Player const* skipped_rcvr = nullptr) const; // pussywizard!
-    virtual void SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr) const { if (IsInWorld()) SendMessageToSetInRange(data, GetVisibilityRange(), false, true, skipped_rcvr); } // pussywizard!
+    virtual void SendMessageToSet(WorldPacket const* data, bool self) const;
+    virtual void SendMessageToSetInRange(WorldPacket const* data, float dist, bool self) const;
+    virtual void SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr) const;
 
     virtual uint8 getLevelForTarget(WorldObject const* /*target*/) const { return 1; }
 
@@ -536,11 +604,14 @@ public:
 
     [[nodiscard]] Player* SelectNearestPlayer(float distance = 0) const;
     void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, uint32 uiEntry, float fMaxSearchRange) const;
+    void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& gameobjectList, std::vector<uint32> const& entries, float maxSearchRange) const;
     void GetCreatureListWithEntryInGrid(std::list<Creature*>& lList, uint32 uiEntry, float fMaxSearchRange) const;
+    void GetCreatureListWithEntryInGrid(std::list<Creature*>& creatureList, std::vector<uint32> const& entries, float maxSearchRange) const;
     void GetDeadCreatureListInGrid(std::list<Creature*>& lList, float maxSearchRange, bool alive = false) const;
 
     void DestroyForNearbyPlayers();
     virtual void UpdateObjectVisibility(bool forced = true, bool fromUpdate = false);
+    virtual void UpdateObjectVisibilityOnCreate() { UpdateObjectVisibility(true); }
     void BuildUpdate(UpdateDataMapType& data_map, UpdatePlayerSet& player_set) override;
     void GetCreaturesWithEntryInRange(std::list<Creature*>& creatureList, float radius, uint32 entry);
 
@@ -570,16 +641,8 @@ public:
 
     [[nodiscard]] bool IsInWintergrasp() const
     {
-        return GetMapId() == 571 && GetPositionX() > 3733.33331f && GetPositionX() < 5866.66663f && GetPositionY() > 1599.99999f && GetPositionY() < 4799.99997f;
+        return GetMapId() == MAP_NORTHREND && GetPositionX() > 3733.33331f && GetPositionX() < 5866.66663f && GetPositionY() > 1599.99999f && GetPositionY() < 4799.99997f;
     }
-
-#ifdef MAP_BASED_RAND_GEN
-    int32 irand(int32 min, int32 max) const     { return int32 (GetMap()->mtRand.randInt(max - min)) + min; }
-    uint32 urand(uint32 min, uint32 max) const  { return GetMap()->mtRand.randInt(max - min) + min;}
-    int32 rand32() const                        { return GetMap()->mtRand.randInt();}
-    double rand_norm() const                    { return GetMap()->mtRand.randExc();}
-    double rand_chance() const                  { return GetMap()->mtRand.randExc(100.0);}
-#endif
 
     uint32  LastUsedScriptID;
 
@@ -601,6 +664,10 @@ public:
     [[nodiscard]] virtual float GetStationaryZ() const { return GetPositionZ(); }
     [[nodiscard]] virtual float GetStationaryO() const { return GetOrientation(); }
 
+    [[nodiscard]] float GetMapWaterOrGroundLevel(Position pos, float* ground = nullptr) const
+    {
+        return GetMapWaterOrGroundLevel(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), ground);
+    };
     [[nodiscard]] float GetMapWaterOrGroundLevel(float x, float y, float z, float* ground = nullptr) const;
     [[nodiscard]] float GetMapHeight(float x, float y, float z, bool vmap = true, float distanceToSearch = 50.0f) const; // DEFAULT_HEIGHT_SEARCH in map.h
 
@@ -618,9 +685,14 @@ public:
     [[nodiscard]] GuidUnorderedSet const& GetAllowedLooters() const;
     void RemoveAllowedLooter(ObjectGuid guid);
 
+    virtual bool IsUpdateNeeded();
+    bool CanBeAddedToMapUpdateList();
+
     std::string GetDebugInfo() const override;
 
+    // Event handler
     ElunaEventProcessor* elunaEvents;
+    EventProcessor m_Events;
 
 protected:
     std::string m_name;
@@ -654,7 +726,7 @@ protected:
     virtual bool IsAlwaysDetectableFor(WorldObject const* /*seer*/) const { return false; }
 private:
     Map* m_currMap;                                    //current object's Map location
-
+    Milliseconds _heartbeatTimer;
     //uint32 m_mapId;                                     // object at map with map_id
     uint32 m_InstanceId;                                // in map copy with instance id
     uint32 m_phaseMask;                                 // in area phase state

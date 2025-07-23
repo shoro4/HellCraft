@@ -48,7 +48,7 @@ enum AhnKahetCreatures
 
 enum AhnkahetSpells
 {
-    SPELL_SHADOW_SICKLE             = 56701, // Shadow Sickle Normal
+    SPELL_SHADOW_SICKLE             = 56701, // Shadow Sickle
 };
 
 enum AhnkahetObjects
@@ -83,6 +83,5 @@ inline AI* GetAhnKahetAI(T* obj)
 }
 
 #define RegisterAhnKahetCreatureAI(ai_name) RegisterCreatureAIWithFactory(ai_name, GetAhnKahetAI)
-#define RegisterAhnKahetGameObjectAI(ai_name) RegisterGameObjectAIWithFactory(ai_name, GetAhnKahetAI)
 
 #endif // DEF_AHNKAHET_H

@@ -28,6 +28,7 @@
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "SpellMgr.h"
+#include "WorldState.h"
 
 // Checks if object meets the condition
 // Can have CONDITION_SOURCE_TYPE_NONE && !mReferenceId if called from a special event (ie: eventAI)
@@ -408,7 +409,7 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
     }
     case CONDITION_WORLD_STATE:
     {
-        condMeets = ConditionValue2 == sWorld->getWorldState(ConditionValue1);
+        condMeets = ConditionValue2 == sWorldState->getWorldState(ConditionValue1);
         break;
     }
     case CONDITION_PHASEMASK:
@@ -568,6 +569,11 @@ bool Condition::Meets(ConditionSourceInfo& sourceInfo)
     {
         if (Unit* unit = object->ToUnit())
             condMeets = unit->IsCharmed();
+        break;
+    }
+    case CONDITION_WORLD_SCRIPT:
+    {
+        condMeets = sWorldState->IsConditionFulfilled(ConditionValue1, ConditionValue2);
         break;
     }
     default:
@@ -769,6 +775,9 @@ uint32 Condition::GetSearcherTypeMaskForCondition()
         break;
     case CONDITION_CHARMED:
         mask |= GRID_MAP_TYPE_MASK_CREATURE | GRID_MAP_TYPE_MASK_PLAYER;
+        break;
+    case CONDITION_WORLD_SCRIPT:
+        mask |= GRID_MAP_TYPE_MASK_ALL;
         break;
     default:
         ASSERT(false && "Condition::GetSearcherTypeMaskForCondition - missing condition handling!");
@@ -1054,10 +1063,10 @@ void ConditionMgr::LoadConditions(bool isReload)
         LootTemplates_Spell.ResetConditions();
         LootTemplates_Player.ResetConditions();
 
-        LOG_INFO("server.loading", "Re-Loading `gossip_menu` Table for Conditions!");
+        LOG_INFO("server.loading", "Reloading `gossip_menu` Table for Conditions!");
         sObjectMgr->LoadGossipMenu();
 
-        LOG_INFO("server.loading", "Re-Loading `gossip_menu_option` Table for Conditions!");
+        LOG_INFO("server.loading", "Reloading `gossip_menu_option` Table for Conditions!");
         sObjectMgr->LoadGossipMenuItems();
         sSpellMgr->UnloadSpellInfoImplicitTargetConditionLists();
     }

@@ -18,7 +18,6 @@
 #include "GridNotifiers.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
-#include "SpellMgr.h"
 #include "Transport.h"
 #include "UpdateData.h"
 #include "WorldPacket.h"
@@ -159,7 +158,7 @@ inline void CreatureUnitRelocationWorker(Creature* c, Unit* u)
         {
             c->AI()->MoveInLineOfSight_Safe(u);
         }
-        else if (u->GetTypeId() == TYPEID_PLAYER && u->HasStealthAura() && c->IsAIEnabled && c->CanSeeOrDetect(u, false, true, true))
+        else if (u->IsPlayer() && u->HasStealthAura() && c->IsAIEnabled && c->CanSeeOrDetect(u, false, true, true))
         {
             c->AI()->TriggerAlert(u);
         }
@@ -217,8 +216,14 @@ void MessageDistDeliverer::Visit(PlayerMapType& m)
         if (!target->InSamePhase(i_phaseMask))
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
 
         // Send packet to all who are sharing the player's vision
         if (target->HasSharedVision())
@@ -242,8 +247,14 @@ void MessageDistDeliverer::Visit(CreatureMapType& m)
         if (!target->HasSharedVision() || !target->InSamePhase(i_phaseMask))
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
 
         // Send packet to all who are sharing the creature's vision
         SharedVisionList::const_iterator i = target->GetSharedVisionList().begin();
@@ -265,8 +276,14 @@ void MessageDistDeliverer::Visit(DynamicObjectMapType& m)
         if (!target->IsViewpoint())
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
 
         // Send packet back to the caster if the caster has vision of dynamic object
         Player* caster = (Player*)target->GetCaster();
@@ -337,22 +354,9 @@ void MessageDistDelivererToHostile::Visit(DynamicObjectMapType& m)
     }
 }
 
-template<class T>
-void ObjectUpdater::Visit(GridRefMgr<T>& m)
-{
-    T* obj;
-    for (typename GridRefMgr<T>::iterator iter = m.begin(); iter != m.end(); )
-    {
-        obj = iter->GetSource();
-        ++iter;
-        if (obj->IsInWorld() && (i_largeOnly == obj->IsVisibilityOverridden()))
-            obj->Update(i_timeDiff);
-    }
-}
-
 bool AnyDeadUnitObjectInRangeCheck::operator()(Player* u)
 {
-    return !u->IsAlive() && !u->HasAuraType(SPELL_AURA_GHOST) && i_searchObj->IsWithinDistInMap(u, i_range);
+    return !u->IsAlive() && !u->HasGhostAura() && i_searchObj->IsWithinDistInMap(u, i_range);
 }
 
 bool AnyDeadUnitObjectInRangeCheck::operator()(Corpse* u)
@@ -379,7 +383,3 @@ bool AnyDeadUnitSpellTargetInRangeCheck::operator()(Creature* u)
 {
     return AnyDeadUnitObjectInRangeCheck::operator()(u) && i_check(u);
 }
-
-template void ObjectUpdater::Visit<Creature>(CreatureMapType&);
-template void ObjectUpdater::Visit<GameObject>(GameObjectMapType&);
-template void ObjectUpdater::Visit<DynamicObject>(DynamicObjectMapType&);

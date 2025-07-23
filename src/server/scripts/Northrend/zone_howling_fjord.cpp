@@ -23,7 +23,6 @@
 #include "ScriptedGossip.h"
 #include "SpellInfo.h"
 
-// Ours
 class npc_attracted_reef_bull : public CreatureScript
 {
 public:
@@ -139,7 +138,7 @@ public:
         void setphase(short newPhase)
         {
             Unit* summoner = me->ToTempSummon() ? me->ToTempSummon()->GetSummonerUnit() : nullptr;
-            if (!summoner || summoner->GetTypeId() != TYPEID_PLAYER)
+            if (!summoner || !summoner->IsPlayer())
                 return;
 
             switch (newPhase)
@@ -169,7 +168,6 @@ public:
     }
 };
 
-// Theirs
 /*######
 ## npc_apothecary_hanes
 ######*/
@@ -303,7 +301,7 @@ public:
             ObjectGuid summonerGUID;
             if (me->IsSummon())
                 if (Unit* summoner = me->ToTempSummon()->GetSummonerUnit())
-                    if (summoner->GetTypeId() == TYPEID_PLAYER)
+                    if (summoner->IsPlayer())
                         summonerGUID = summoner->GetGUID();
 
             if (!summonerGUID)
@@ -397,11 +395,8 @@ public:
 
 void AddSC_howling_fjord()
 {
-    // Ours
     new npc_attracted_reef_bull();
     new npc_your_inner_turmoil();
-
-    // Theirs
     new npc_apothecary_hanes();
     new npc_plaguehound_tracker();
     new npc_razael_and_lyana();
